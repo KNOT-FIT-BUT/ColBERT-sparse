@@ -20,7 +20,10 @@ from colbert.training.utils import print_progress, manage_checkpoints
 
 
 
-def train(config: ColBERTConfig, triples, queries=None, collection=None):
+def train(config: ColBERTConfig, triples, queries=None, collection=None, lmbd=1.0):
+    # lmbd is the lambda hyperparameter for the sparsity scores of the loss function
+    # lmbd=0.0 means no sparsity scores are used
+     
     config.checkpoint = config.checkpoint or 'bert-base-uncased'
 
     if config.rank < 1:
@@ -114,9 +117,11 @@ def train(config: ColBERTConfig, triples, queries=None, collection=None):
 
                     log_scores = torch.nn.functional.log_softmax(scores, dim=-1)
                     loss = torch.nn.KLDivLoss(reduction='batchmean', log_target=True)(log_scores, target_scores)                    
+                    loss += lmbd * torch.abs(sparsity_scores).sum() / sparsity_scores.size(0)
                     
                 else:
                     loss = nn.CrossEntropyLoss()(scores, labels[:scores.size(0)])
+                    loss += lmbd * torch.abs(sparsity_scores).sum() / sparsity_scores.size(0)
 
                 if config.use_ib_negatives:
                     if config.rank < 1:
