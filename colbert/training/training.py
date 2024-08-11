@@ -100,7 +100,7 @@ def train(config: ColBERTConfig, triples, queries=None, collection=None):
                     encoding, target_scores = batch
                     encoding = [encoding.to(DEVICE)]
 
-                scores = colbert(*encoding)
+                scores, sparsity_scores = colbert(*encoding)
 
                 if config.use_ib_negatives:
                     scores, ib_loss = scores
@@ -113,7 +113,8 @@ def train(config: ColBERTConfig, triples, queries=None, collection=None):
                     target_scores = torch.nn.functional.log_softmax(target_scores, dim=-1)
 
                     log_scores = torch.nn.functional.log_softmax(scores, dim=-1)
-                    loss = torch.nn.KLDivLoss(reduction='batchmean', log_target=True)(log_scores, target_scores)
+                    loss = torch.nn.KLDivLoss(reduction='batchmean', log_target=True)(log_scores, target_scores)                    
+                    
                 else:
                     loss = nn.CrossEntropyLoss()(scores, labels[:scores.size(0)])
 

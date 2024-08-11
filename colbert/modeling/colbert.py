@@ -28,6 +28,9 @@ class ColBERT(BaseColBERT):
                              for symbol in string.punctuation
                              for w in [symbol, self.raw_tokenizer.encode(symbol, add_special_tokens=False)[0]]}
         self.pad_token = self.raw_tokenizer.pad_token_id
+        
+        self.slinear = torch.nn.Linear(self.colbert_config.dim, 1, bias=True)
+        self.doc._init_weights(self.slinear)
 
 
     @classmethod
@@ -52,7 +55,7 @@ class ColBERT(BaseColBERT):
 
     def forward(self, Q, D):
         Q = self.query(*Q)
-        D, D_mask = self.doc(*D, keep_dims='return_mask')
+        D, D_mask, sparsity_scores = self.doc(*D, keep_dims='return_mask')
 
         # Repeat each query encoding for every corresponding document.
         Q_duplicated = Q.repeat_interleave(self.colbert_config.nway, dim=0).contiguous()
@@ -62,7 +65,7 @@ class ColBERT(BaseColBERT):
             ib_loss = self.compute_ib_loss(Q, D, D_mask)
             return scores, ib_loss
 
-        return scores
+        return scores, sparsity_scores
 
     def compute_ib_loss(self, Q, D, D_mask):
         # TODO: Organize the code below! Quite messy.
@@ -98,21 +101,28 @@ class ColBERT(BaseColBERT):
         input_ids, attention_mask = input_ids.to(self.device), attention_mask.to(self.device)
         D = self.bert(input_ids, attention_mask=attention_mask)[0]
         D = self.linear(D)
+        sparsity_scores = self.slinear(D)
+        
+        
         mask = torch.tensor(self.mask(input_ids, skiplist=self.skiplist), device=self.device).unsqueeze(2).float()
-        D = D * mask
+        rhat = rhat * mask
 
-        D = torch.nn.functional.normalize(D, p=2, dim=2)
+        rhat = torch.nn.functional.normalize(rhat, p=2, dim=2)
+        rhat = rhat.view(-1, rhat.size(-1)).unsqueeze(-1)
+        sparsity_scores = sparsity_scores.view(-1, sparsity_scores.size(-1)).unsqueeze(-1)
+        
+        r = torch.bmm(rhat, sparsity_scores)
         if self.use_gpu:
-            D = D.half()
+            r = r.half()
 
         if keep_dims is False:
-            D, mask = D.cpu(), mask.bool().cpu().squeeze(-1)
-            D = [d[mask[idx]] for idx, d in enumerate(D)]
+            r, mask = rhat.cpu(), mask.bool().cpu().squeeze(-1)
+            r = [d[mask[idx]] for idx, d in enumerate(r)]
 
         elif keep_dims == 'return_mask':
-            return D, mask.bool()
+            return r, mask.bool(), sparsity_scores
 
-        return D
+        return r, sparsity_scores # TODO: Adjust all function calls to this function
 
     def score(self, Q, D_padded, D_mask):
         # assert self.colbert_config.similarity == 'cosine'
