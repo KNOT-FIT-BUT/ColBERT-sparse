@@ -13,6 +13,7 @@ class Trainer:
         self.queries = queries
         self.collection = collection
         
+        self.lmbd = None
         if "lmbd" in kw_args:
             self.lmbd = kw_args["lmbd"]
             assert isinstance(self.lmbd, float)
