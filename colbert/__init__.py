@@ -4,3 +4,5 @@ from .searcher import Searcher
 from .index_updater import IndexUpdater
 
 from .modeling.checkpoint import Checkpoint
+
+print("DEBUG: Imported the ColBERT-sparse library (fork)") 
