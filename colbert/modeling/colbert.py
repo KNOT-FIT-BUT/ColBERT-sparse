@@ -30,8 +30,7 @@ class ColBERT(BaseColBERT):
         self.pad_token = self.raw_tokenizer.pad_token_id
         
         self.slinear = torch.nn.Linear(self.colbert_config.dim, 1, bias=True)
-        self.doc._init_weights(self.slinear)
-
+        self.slinear.weight.data.normal_(mean=0.0, std=0.02)
 
     @classmethod
     def try_load_torch_extensions(cls, use_gpu):
