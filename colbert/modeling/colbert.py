@@ -62,7 +62,7 @@ class ColBERT(BaseColBERT):
 
         if self.colbert_config.use_ib_negatives:
             ib_loss = self.compute_ib_loss(Q, D, D_mask)
-            return scores, ib_loss
+            return scores, ib_loss, sparsity_scores
 
         return scores, sparsity_scores
 
@@ -102,15 +102,17 @@ class ColBERT(BaseColBERT):
         D = self.linear(D)
         sparsity_scores = self.slinear(D)
         
-        
         mask = torch.tensor(self.mask(input_ids, skiplist=self.skiplist), device=self.device).unsqueeze(2).float()
-        rhat = rhat * mask
-
+        rhat = D * mask
         rhat = torch.nn.functional.normalize(rhat, p=2, dim=2)
+        
+        rhat_shape = rhat.shape
+    
         rhat = rhat.view(-1, rhat.size(-1)).unsqueeze(-1)
         sparsity_scores = sparsity_scores.view(-1, sparsity_scores.size(-1)).unsqueeze(-1)
         
         r = torch.bmm(rhat, sparsity_scores)
+        r = r.view(rhat_shape)
         if self.use_gpu:
             r = r.half()
 
@@ -121,7 +123,7 @@ class ColBERT(BaseColBERT):
         elif keep_dims == 'return_mask':
             return r, mask.bool(), sparsity_scores
 
-        return r, sparsity_scores # TODO: Adjust all function calls to this function
+        return r, sparsity_scores
 
     def score(self, Q, D_padded, D_mask):
         # assert self.colbert_config.similarity == 'cosine'

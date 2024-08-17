@@ -103,11 +103,12 @@ def train(config: ColBERTConfig, triples, queries=None, collection=None, lmbd=1.
                     encoding, target_scores = batch
                     encoding = [encoding.to(DEVICE)]
 
-                scores, sparsity_scores = colbert(*encoding)
 
                 if config.use_ib_negatives:
-                    scores, ib_loss = scores
-
+                    scores, ib_loss, sparsity_scores = colbert(*encoding)
+                else:
+                    scores, sparsity_scores = colbert(*encoding)
+    
                 scores = scores.view(-1, config.nway)
 
                 if len(target_scores) and not config.ignore_scores:
