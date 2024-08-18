@@ -155,7 +155,8 @@ class TrainingSettings:
     ignore_scores: bool = DefaultVal(False)
 
     model_name: str = DefaultVal(None)  # DefaultVal('bert-base-uncased')
-
+    
+    lmbd : float = DefaultVal(0.0) # Sparsity param for the loss function
 
 @dataclass
 class IndexingSettings:
