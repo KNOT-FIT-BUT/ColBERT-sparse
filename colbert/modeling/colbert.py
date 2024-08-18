@@ -94,7 +94,7 @@ class ColBERT(BaseColBERT):
 
         return torch.nn.functional.normalize(Q, p=2, dim=2)
 
-    def doc(self, input_ids, attention_mask, keep_dims=True):
+    def doc(self, input_ids, attention_mask, keep_dims=True, include_sparsity_scores=True):
         assert keep_dims in [True, False, 'return_mask']
 
         input_ids, attention_mask = input_ids.to(self.device), attention_mask.to(self.device)
@@ -121,9 +121,13 @@ class ColBERT(BaseColBERT):
             r = [d[mask[idx]] for idx, d in enumerate(r)]
 
         elif keep_dims == 'return_mask':
-            return r, mask.bool(), sparsity_scores
+            if include_sparsity_scores:
+                return r, mask.bool(), sparsity_scores
+            return r, mask.bool()
 
-        return r, sparsity_scores
+        if include_sparsity_scores:
+            return r, sparsity_scores
+        return r
 
     def score(self, Q, D_padded, D_mask):
         # assert self.colbert_config.similarity == 'cosine'
