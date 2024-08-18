@@ -36,6 +36,7 @@ class BaseColBERT(torch.nn.Module):
         self.model = HF_ColBERT.from_pretrained(name_or_path, colbert_config=self.colbert_config)
         self.model.to(DEVICE)
         self.raw_tokenizer = AutoTokenizer.from_pretrained(name_or_path)
+        
 
         self.eval()
 
@@ -50,6 +51,10 @@ class BaseColBERT(torch.nn.Module):
     @property
     def linear(self):
         return self.model.linear
+
+    @property
+    def slinear(self):
+        return self.model.slinear 
 
     @property
     def score_scaler(self):
