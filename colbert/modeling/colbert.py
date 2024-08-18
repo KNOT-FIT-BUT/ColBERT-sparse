@@ -29,9 +29,6 @@ class ColBERT(BaseColBERT):
                              for w in [symbol, self.raw_tokenizer.encode(symbol, add_special_tokens=False)[0]]}
         self.pad_token = self.raw_tokenizer.pad_token_id
         
-        self.slinear = torch.nn.Linear(self.colbert_config.dim, 1, bias=True)
-        self.slinear.weight.data.normal_(mean=0.0, std=0.02)
-
     @classmethod
     def try_load_torch_extensions(cls, use_gpu):
         if hasattr(cls, "loaded_extensions") or use_gpu:
