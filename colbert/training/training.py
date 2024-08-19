@@ -91,6 +91,7 @@ def train(config: ColBERTConfig, triples, queries=None, collection=None, lmbd=1.
     SPARISTY_STATS_SAVE_PATH = '/scratch/project/open-30-35/jstetina/projects/colbert_sparse/outputs/stats/sparsity_scores'
 
     sparsity_scores = None
+    loss = None
 
 
     for batch_idx, BatchSteps in zip(range(start_batch_idx, config.maxsteps), reader):
@@ -100,10 +101,16 @@ def train(config: ColBERTConfig, triples, queries=None, collection=None, lmbd=1.
 
         this_batch_loss = 0.0
         
+        ## STATISTICS
+        
         if batch_idx % 1000 == 0 and sparsity_scores: # Save the sparsity scores every 1000 batches
             print("Saving sparsity scores")
             path = os.path.join(SPARISTY_STATS_SAVE_PATH, f'rank{config.rank}_sparsity_scores_{batch_idx}.pt')
             torch.save(sparsity_scores, path)
+            
+        sparsity_loss_outputed = False
+
+        ## END STATISTICS
 
         for batch in BatchSteps:
             with amp.context():
@@ -129,7 +136,13 @@ def train(config: ColBERTConfig, triples, queries=None, collection=None, lmbd=1.
 
                     log_scores = torch.nn.functional.log_softmax(scores, dim=-1)
                     loss = torch.nn.KLDivLoss(reduction='batchmean', log_target=True)(log_scores, target_scores)                    
-                    loss += lmbd * torch.abs(sparsity_scores).sum() / sparsity_scores.size(0)
+                    loss += lmbd * torch.abs(sparsity_scores).sum() / sparsity_scores.size(0) # l1 regularization
+                    
+                    if batch_idx % 1000 == 0 and not sparsity_loss_outputed:
+                        sparisty_loss = lmbd * torch.abs(sparsity_scores).sum() / sparsity_scores.size(0) 
+                        path = os.path.join(SPARISTY_STATS_SAVE_PATH, f'rank{config.rank}_sparsity_loss.tsv')
+                        with open(path, 'a') as f:
+                            f.write(f"{batch_idx}\t{sparisty_loss.item()}\n")
                     
                 else:
                     loss = nn.CrossEntropyLoss()(scores, labels[:scores.size(0)])
