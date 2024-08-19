@@ -40,6 +40,15 @@ class Trainer:
         else:
             self._best_checkpoint_path = launcher.launch(self.config, self.triples, self.queries, self.collection)
 
+        self._best_checkpoint_path = launcher.launch(
+            self.config, 
+            self.triples, 
+            self.queries, 
+            self.collection, 
+            lmbd=self.lmbd if self.lmbd is not None else None
+        )
+
+
     def best_checkpoint_path(self):
         return self._best_checkpoint_path
 
