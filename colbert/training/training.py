@@ -86,6 +86,12 @@ def train(config: ColBERTConfig, triples, queries=None, collection=None, lmbd=1.
     #     start_batch_idx = checkpoint['batch']
 
     #     reader.skip_to_batch(start_batch_idx, checkpoint['arguments']['bsize'])
+    
+    import os
+    SPARISTY_STATS_SAVE_PATH = '/scratch/project/open-30-35/jstetina/projects/colbert_sparse/outputs/stats/sparsity_scores'
+
+    sparsity_scores = None
+
 
     for batch_idx, BatchSteps in zip(range(start_batch_idx, config.maxsteps), reader):
         if (warmup_bert is not None) and warmup_bert <= batch_idx:
@@ -93,6 +99,11 @@ def train(config: ColBERTConfig, triples, queries=None, collection=None, lmbd=1.
             warmup_bert = None
 
         this_batch_loss = 0.0
+        
+        if batch_idx % 1000 == 0 and sparsity_scores: # Save the sparsity scores every 1000 batches
+            print("Saving sparsity scores")
+            path = os.path.join(SPARISTY_STATS_SAVE_PATH, f'rank{config.rank}_sparsity_scores_{batch_idx}.pt')
+            torch.save(sparsity_scores, path)
 
         for batch in BatchSteps:
             with amp.context():
