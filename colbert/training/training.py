@@ -105,7 +105,7 @@ def train(config: ColBERTConfig, triples, queries=None, collection=None, lmbd=1.
         
         ## STATISTICS
         
-        if batch_idx % 1000 == 0 and sparsity_scores: # Save the sparsity scores every 1000 batches
+        if batch_idx % 1000 == 0 and sparsity_scores is not None: # Save the sparsity scores every 1000 batches
             print("Saving sparsity scores")
             path = os.path.join(SPARISTY_STATS_SAVE_PATH, f'rank{config.rank}_sparsity_scores_{batch_idx}.pt')
             torch.save(sparsity_scores, path)
