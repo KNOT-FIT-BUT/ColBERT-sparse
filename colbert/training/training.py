@@ -88,7 +88,9 @@ def train(config: ColBERTConfig, triples, queries=None, collection=None, lmbd=1.
     #     reader.skip_to_batch(start_batch_idx, checkpoint['arguments']['bsize'])
     
     import os
+
     SPARISTY_STATS_SAVE_PATH = '/scratch/project/open-30-35/jstetina/projects/colbert_sparse/outputs/stats/sparsity_scores'
+    SPARISTY_STATS_SAVE_PATH = 'outputs/stats/sparsity_scores'
 
     sparsity_scores = None
     loss = None
@@ -140,7 +142,7 @@ def train(config: ColBERTConfig, triples, queries=None, collection=None, lmbd=1.
                     
                     if batch_idx % 1000 == 0 and not sparsity_loss_outputed:
                         sparisty_loss = lmbd * torch.abs(sparsity_scores).sum() / sparsity_scores.size(0) 
-                        path = os.path.join(SPARISTY_STATS_SAVE_PATH, f'rank{config.rank}_sparsity_loss.tsv')
+                        path = os.path.join(SPARISTY_STATS_SAVE_PATH, f'rank{config.rank}_sparsity_loss_{batch_idx}.tsv')
                         with open(path, 'a') as f:
                             f.write(f"{batch_idx}\t{sparisty_loss.item()}\n")
                     
