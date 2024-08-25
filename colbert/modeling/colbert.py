@@ -104,7 +104,10 @@ class ColBERT(BaseColBERT):
         rhat = torch.nn.functional.normalize(rhat, p=2, dim=2)
         
         rhat_shape = rhat.shape
-    
+        
+        print("Doc enc: D shape", D.shape)
+        print("sparsity_scores shape", sparsity_scores.shape)
+
         rhat = rhat.view(-1, rhat.size(-1)).unsqueeze(-1)
         sparsity_scores = sparsity_scores.view(-1, sparsity_scores.size(-1)).unsqueeze(-1)
         

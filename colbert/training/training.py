@@ -20,10 +20,11 @@ from colbert.training.utils import print_progress, manage_checkpoints
 
 
 
-def train(config: ColBERTConfig, triples, queries=None, collection=None, lmbd=1.0):
+def train(config: ColBERTConfig, triples, queries=None, collection=None):
+    lmbd = config.lmbd if config.lmbd else 1.0
     # lmbd is the lambda hyperparameter for the sparsity scores of the loss function
     # lmbd=0.0 means no sparsity scores are used
-     
+
     config.checkpoint = config.checkpoint or 'bert-base-uncased'
 
     if config.rank < 1:
@@ -104,13 +105,8 @@ def train(config: ColBERTConfig, triples, queries=None, collection=None, lmbd=1.
         this_batch_loss = 0.0
         
         ## STATISTICS
-        
-        if batch_idx % 1000 == 0 and sparsity_scores is not None: # Save the sparsity scores every 1000 batches
-            print("Saving sparsity scores")
-            path = os.path.join(SPARISTY_STATS_SAVE_PATH, f'rank{config.rank}_sparsity_scores_{batch_idx}.pt')
-            torch.save(sparsity_scores, path)
             
-        sparsity_loss_outputed = False
+        sparsity_stats_outputed  = False
 
         ## END STATISTICS
 
@@ -128,7 +124,10 @@ def train(config: ColBERTConfig, triples, queries=None, collection=None, lmbd=1.
                     scores, ib_loss, sparsity_scores = colbert(*encoding)
                 else:
                     scores, sparsity_scores = colbert(*encoding)
-    
+               
+                scores_out = scores
+                doc_len = sparsity_scores.size(0) // scores.size(0) # Divide # of s.scores by the batch size
+
                 scores = scores.view(-1, config.nway)
 
                 if len(target_scores) and not config.ignore_scores:
@@ -138,17 +137,41 @@ def train(config: ColBERTConfig, triples, queries=None, collection=None, lmbd=1.
 
                     log_scores = torch.nn.functional.log_softmax(scores, dim=-1)
                     loss = torch.nn.KLDivLoss(reduction='batchmean', log_target=True)(log_scores, target_scores)                    
-                    loss += lmbd * torch.abs(sparsity_scores).sum() / sparsity_scores.size(0) # l1 regularization
+                    no_sparse_loss = loss
+                    loss += lmbd * torch.abs(sparsity_scores).sum() / sparsity_scores.size(0)
                     
-                    if batch_idx % 1000 == 0 and not sparsity_loss_outputed:
-                        sparisty_loss = lmbd * torch.abs(sparsity_scores).sum() / sparsity_scores.size(0) 
-                        path = os.path.join(SPARISTY_STATS_SAVE_PATH, f'rank{config.rank}_sparsity_loss_{batch_idx}.tsv')
-                        with open(path, 'a') as f:
-                            f.write(f"{batch_idx}\t{sparisty_loss.item()}\n")
                     
                 else:
                     loss = nn.CrossEntropyLoss()(scores, labels[:scores.size(0)])
+                    no_sparse_loss = loss
                     loss += lmbd * torch.abs(sparsity_scores).sum() / sparsity_scores.size(0)
+
+                # START STATS
+                if batch_idx % 1000 == 0 and not sparsity_stats_outputed:
+                    sparsity_stats_outputed = True
+                    print("Saving stats...")
+
+                    # KL DIV LOSS or CROSS ENTROPY LOSS
+                    path = os.path.join(SPARISTY_STATS_SAVE_PATH, f'{lmbd}_rank{config.rank}_no_sparse_loss_{batch_idx}.tsv')
+                    with open(path, 'a') as f:
+                        f.write(f"{batch_idx}\t{no_sparse_loss.item()}\n")
+
+                    # SPARSITY LOSS
+                    sparisty_loss = lmbd * torch.abs(sparsity_scores).sum() / sparsity_scores.size(0)
+                    path = os.path.join(SPARISTY_STATS_SAVE_PATH, f'{lmbd}_rank{config.rank}_sparsity_loss_{batch_idx}.tsv')
+                    with open(path, 'a') as f:
+                        f.write(f"{batch_idx}\t{sparisty_loss.item()}\n")
+                    
+                    # OVERALL LOSS
+                    path = os.path.join(SPARISTY_STATS_SAVE_PATH, f'{lmbd}_rank{config.rank}_overall_loss_{batch_idx}.tsv')
+                    with open(path, 'a') as f:
+                        f.write(f"{batch_idx}\t{loss.item()}")
+
+                    # SPARSITY SCORES
+                    s_scores_reshape = sparsity_scores.reshape(scores_out.size(0), doc_len, 1)
+                    path = os.path.join(SPARISTY_STATS_SAVE_PATH, f'{lmbd}_rank{config.rank}_sparsity_scores_{batch_idx}.pt')
+                    torch.save(s_scores_reshape, path)
+                # END STATS
 
                 if config.use_ib_negatives:
                     if config.rank < 1:
