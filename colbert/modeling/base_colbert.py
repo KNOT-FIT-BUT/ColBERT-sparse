@@ -57,6 +57,10 @@ class BaseColBERT(torch.nn.Module):
         return self.model.slinear 
 
     @property
+    def ssigmoid(self):
+        return self.model.ssigmoid 
+
+    @property
     def score_scaler(self):
         return self.model.score_scaler
 
