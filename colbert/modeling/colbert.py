@@ -98,6 +98,7 @@ class ColBERT(BaseColBERT):
         D = self.bert(input_ids, attention_mask=attention_mask)[0]
         D = self.linear(D)
         sparsity_scores = self.slinear(D)
+        sparsity_scores = self.ssigmoid(D)
         
         mask = torch.tensor(self.mask(input_ids, skiplist=self.skiplist), device=self.device).unsqueeze(2).float()
         rhat = D * mask

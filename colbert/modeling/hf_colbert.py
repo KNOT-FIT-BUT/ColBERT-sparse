@@ -103,6 +103,7 @@ def class_factory(name_or_path):
             self.dim = colbert_config.dim
             self.linear = nn.Linear(config.hidden_size, colbert_config.dim, bias=False)
             self.slinear = nn.Linear(colbert_config.dim, 1, bias=True)
+            self.ssigmoid = nn.Sigmoid()
             setattr(self,self.base_model_prefix, model_class_object(config))
 
             # if colbert_config.relu:
