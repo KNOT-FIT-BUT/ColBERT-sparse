@@ -44,8 +44,7 @@ class Trainer:
             self.config, 
             self.triples, 
             self.queries, 
-            self.collection, 
-            lmbd=self.lmbd if self.lmbd is not None else None
+            self.collection 
         )
 
 
