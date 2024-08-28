@@ -89,6 +89,7 @@ def train(config: ColBERTConfig, triples, queries=None, collection=None):
     #     reader.skip_to_batch(start_batch_idx, checkpoint['arguments']['bsize'])
     
     for batch_idx, BatchSteps in zip(range(start_batch_idx, config.maxsteps), reader):
+        print(f"Training batch [{batch_idx}/{config.maxsteps}]")
         if (warmup_bert is not None) and warmup_bert <= batch_idx:
             set_bert_grad(colbert, True)
             warmup_bert = None
@@ -103,7 +104,7 @@ def train(config: ColBERTConfig, triples, queries=None, collection=None):
                 except:
                     encoding, target_scores = batch
                     encoding = [encoding.to(DEVICE)]
-
+    
 
                 if config.use_ib_negatives:
                     scores, ib_loss, sparsity_scores = colbert(*encoding)
@@ -133,14 +134,15 @@ def train(config: ColBERTConfig, triples, queries=None, collection=None):
 
                 if config.use_ib_negatives:
                     if config.rank < 1:
-                        print('\t\t\t\t', loss.item(), ib_loss.item())
-
+                        #print('\t\t\t\t', loss.item(), ib_loss.item())
+                        pass
                     loss += ib_loss
 
                 loss = loss / config.accumsteps
 
             if config.rank < 1:
-                print_progress(scores)
+                pass
+                #print_progress(scores)
 
             amp.backward(loss)
 
