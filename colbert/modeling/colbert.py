@@ -29,6 +29,10 @@ class ColBERT(BaseColBERT):
                              for w in [symbol, self.raw_tokenizer.encode(symbol, add_special_tokens=False)[0]]}
         self.pad_token = self.raw_tokenizer.pad_token_id
         
+        # STATS 
+        self.keep_stats = []
+        self.discard_stats = []
+        
     @classmethod
     def try_load_torch_extensions(cls, use_gpu):
         if hasattr(cls, "loaded_extensions") or use_gpu:
@@ -191,6 +195,28 @@ class ColBERT(BaseColBERT):
     def mask(self, input_ids, skiplist):
         mask = [[(x not in skiplist) and (x != self.pad_token) for x in d] for d in input_ids.cpu().tolist()]
         return mask
+    
+    def output_stats(self):
+        if len(self.keep_stats) > 0:
+            keep_stats = torch.cat(self.keep_stats, dim=0)
+            discard_stats = torch.cat(self.discard_stats, dim=0)
+            
+            param_str = ""
+            if self.colbert_config.sparse_reduce_type == "threshold":
+                param_str = f"delta-{self.colbert_config.sparse_reduce_delta}"
+            elif self.colbert_config.sparse_reduce_type == "prob_cutoff":
+                param_str = f"quantile-{self.colbert_config.sparse_reduce_quantile}"
+            elif self.colbert_config.sparse_reduce_type == "top_k":
+                param_str = f"k-{self.colbert_config.sparse_reduce_k}"
+            
+            save_dir_path = "/home/xsteti05/mnt/karolina/projects/colbert_sparse/outputs/stats/index_stats"
+            
+            torch.save(keep_stats, os.path.join(save_dir_path, f"{param_str}_keep_mask_stats_keep.pt"))
+            torch.save(discard_stats, os.path.join(save_dir_path, f"{param_str}_keep_mask_stats_discard.pt"))
+            print("DEBUG: Saved keep_mask_stats_keep.pt and keep_mask_stats_discard.pt")
+        else:
+            print("DEBUG: No stats to save")
+    
 
 
 # TODO: In Query/DocTokenizer, use colbert.raw_tokenizer

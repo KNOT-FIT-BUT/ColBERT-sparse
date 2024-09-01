@@ -212,6 +212,9 @@ class Checkpoint(ColBERT):
         scores = scores.max(1)
 
         return scores.values.sum(-1).cpu()
+    
+    def __del__(self):
+        super().output_stats()
 
 
 def _stack_3D_tensors(groups):
@@ -230,6 +233,9 @@ def _stack_3D_tensors(groups):
         offset = endpos
 
     return output
+
+
+    
 
 
 """
