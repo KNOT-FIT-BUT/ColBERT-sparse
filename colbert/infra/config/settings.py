@@ -175,6 +175,21 @@ class IndexingSettings:
     clustering_mode: str = DefaultVal("hierarchical")
 
     protected_tokens: int = DefaultVal(0)
+    
+    # Sparse reduce type options: ["threshold", "prob_cutoff", "top_k"]
+    
+    sparse_reduce : bool = DefaultVal(True)
+    
+    sparse_reduce_type : str = DefaultVal("threshold") 
+    
+    sparse_reduce_delta : float = DefaultVal(0.2)       # param for theshold type
+    
+    sparse_reduce_quantile : float = DefaultVal(0.75)   # param for prob_cutoff type
+    
+    sparse_reduce_k : int = DefaultVal(50)              # param top_k type
+    
+    
+    
 
     @property
     def index_path_(self):
