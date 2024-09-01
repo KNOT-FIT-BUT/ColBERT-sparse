@@ -105,10 +105,8 @@ class ColBERT(BaseColBERT):
         rhat = torch.nn.functional.normalize(rhat, p=2, dim=2)
         
         rhat_shape = rhat.shape
+        sparsity_shape = sparsity_scores.shape
         
-        print("Doc enc: D shape", D.shape)
-        print("sparsity_scores shape", sparsity_scores.shape)
-
         rhat = rhat.view(-1, rhat.size(-1)).unsqueeze(-1)
         sparsity_scores = sparsity_scores.view(-1, sparsity_scores.size(-1)).unsqueeze(-1)
         
@@ -116,14 +114,67 @@ class ColBERT(BaseColBERT):
         r = r.view(rhat_shape)
         if self.use_gpu:
             r = r.half()
+            
+        if self.colbert_config.sparse_reduce and keep_dims in ["return_mask", False]: # INDEXING MODE - use sparsity scores to reduce # of embs
+            # 3 experiments - thesholding: abs(sparse_score) < delta param
+            #               - probability cutoff: prob.distr(sparse_scores) -> leave top x-quantile
+            #               - top-k: eliminate fixed number of embs
+            
+            sparse_reduce_type = self.colbert_config.sparse_reduce_type
+            assert self.colbert_config.sparse_reduce_type in ["threshold", "prob_cutoff", "top_k"]
 
+            sparsity_scores = sparsity_scores.view(sparsity_shape)
+
+            # s_scores (batch_size, doclen, 1)
+            # mask (batch_size, doclen, 1 )
+            # r (batch_size, doclen, config.dim)
+
+            if sparse_reduce_type == "threshold": 
+                delta = self.colbert_config.sparse_reduce_delta
+                keep_mask = sparsity_scores.abs() >= delta
+             
+                # Stats
+                keep_stats = torch.sum(keep_mask, dim=1)
+                discard_stats = torch.sum(~keep_mask, dim=1)
+             
+                self.keep_stats.append(keep_stats)  
+                self.discard_stats.append(discard_stats)                
+             
+                mask = mask.bool() & keep_mask                
+          
+                
+            elif sparse_reduce_type == "prob_cutoff": 
+                quantile = self.colbert_config.sparse_reduce_quantile
+                
+                prob_distr = torch.nn.functional.softmax(sparsity_scores, dim=1)
+                probs_sorted, sorted_indices = prob_distr.squeeze(-1).sort(dim=1, descending=True)
+                
+                cum_probs = probs_sorted.cumsum(dim=1)
+                cutoff_mask = cum_probs <= quantile
+                
+                cutoff_indices = cutoff_mask.sum(dim=1, keep_dims= True)
+                
+                select_mask = torch.arange(r.size(1), device=self.device).unsqueeze(0) < cutoff_indices
+                
+                r = torch.gather(r, 1, sorted_indices.unsqueeze(-1).expand_as(r))[select_mask]\
+                    .view(r.size(0), -1, r.size(2))
+                sparsity_scores = torch.gather(sparsity_scores, 1, sorted_indices.unsqueeze(-1))[select_mask]\
+                    .view(sparsity_scores.size(0), -1, 1)
+                mask = torch.gather(mask, 1, sorted_indices.unsqueeze(-1).expand_as(mask))[select_mask]\
+                    .view(mask.size(0), -1, 1)
+
+
+            elif sparse_reduce_type == "top_k": 
+                # TODO: implement 
+                # k = self.colbert_config.sparse_reduce_k
+                pass
+            
+            
         if keep_dims is False:
             r, mask = rhat.cpu(), mask.bool().cpu().squeeze(-1)
             r = [d[mask[idx]] for idx, d in enumerate(r)]
 
         elif keep_dims == 'return_mask':
-            if include_sparsity_scores:
-                return r, mask.bool(), sparsity_scores
             return r, mask.bool()
 
         if include_sparsity_scores:
