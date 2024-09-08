@@ -222,6 +222,9 @@ class ColBERT(BaseColBERT):
         return mask
     
     def output_stats(self):
+        if not self.colbert_config.sparse_stats:
+            return
+
         if len(self.keep_stats) > 0:
             keep_stats = torch.cat(self.keep_stats, dim=0)
             discard_stats = torch.cat(self.discard_stats, dim=0)

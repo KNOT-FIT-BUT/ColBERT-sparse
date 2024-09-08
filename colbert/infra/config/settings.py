@@ -188,7 +188,7 @@ class IndexingSettings:
     
     sparse_reduce_k : int = DefaultVal(50)              # param top_k type
     
-    
+    sparse_stats : bool = DefaultVal(True)    
     
 
     @property
