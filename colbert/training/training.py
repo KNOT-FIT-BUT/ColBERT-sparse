@@ -164,6 +164,112 @@ def train(config: ColBERTConfig, triples, queries=None, collection=None):
         return ckpt_path  # TODO: This should validate and return the best checkpoint, not just the last one.
 
 
+@torch.no_grad()
+def validate(config: ColBERTConfig, triples, queries=None, collection=None):
+    print("Validate function called")
+    
+    config.checkpoint = config.checkpoint or 'bert-base-uncased'
+
+    if config.rank < 1:
+        config.help()
+
+    random.seed(12345)
+    np.random.seed(12345)
+    torch.manual_seed(12345)
+    torch.cuda.manual_seed_all(12345)
+
+    assert config.bsize % config.nranks == 0, (config.bsize, config.nranks)
+    config.bsize = config.bsize // config.nranks
+
+    print("Using config.bsize =", config.bsize, "(per process) and config.accumsteps =", config.accumsteps)
+
+    if collection is not None:
+        if config.reranker:
+            reader = RerankBatcher(config, triples, queries, collection, (0 if config.rank == -1 else config.rank), config.nranks)
+        else:
+            reader = LazyBatcher(config, triples, queries, collection, (0 if config.rank == -1 else config.rank), config.nranks)
+    else:
+        raise NotImplementedError()
+
+    if not config.reranker:
+        colbert = ColBERT(name=config.checkpoint, colbert_config=config)
+    else:
+        colbert = ElectraReranker.from_pretrained(config.checkpoint)
+
+    colbert = colbert.to(DEVICE)
+    colbert.eval()
+
+    colbert = torch.nn.parallel.DistributedDataParallel(colbert, device_ids=[config.rank],
+                                                        output_device=config.rank,
+                                                        find_unused_parameters=True)
+
+    amp = MixedPrecisionManager(config.amp)
+    labels = torch.zeros(config.bsize, dtype=torch.long, device=DEVICE)
+
+    start_time = time.time()
+    train_loss = None
+    train_loss_mu = 0.999
+
+    start_batch_idx = 0
+
+    # if config.resume:
+    #     assert config.checkpoint is not None
+    #     start_batch_idx = checkpoint['batch']
+
+    #     reader.skip_to_batch(start_batch_idx, checkpoint['arguments']['bsize'])
+
+    validation_losses = torch.Tensor([])
+
+    for batch_idx, BatchSteps in zip(range(start_batch_idx, config.maxsteps), reader):
+        if (warmup_bert is not None) and warmup_bert <= batch_idx:
+            set_bert_grad(colbert, True)
+            warmup_bert = None
+
+        this_batch_loss = 0.0
+
+        for batch in BatchSteps:
+            with amp.context():
+                try:
+                    queries, passages, target_scores = batch
+                    encoding = [queries, passages]
+                except:
+                    encoding, target_scores = batch
+                    encoding = [encoding.to(DEVICE)]
+
+                scores = colbert(*encoding)
+
+                if config.use_ib_negatives:
+                    scores, ib_loss = scores
+
+                scores = scores.view(-1, config.nway)
+
+                if len(target_scores) and not config.ignore_scores:
+                    target_scores = torch.tensor(target_scores).view(-1, config.nway).to(DEVICE)
+                    target_scores = target_scores * config.distillation_alpha
+                    target_scores = torch.nn.functional.log_softmax(target_scores, dim=-1)
+
+                    log_scores = torch.nn.functional.log_softmax(scores, dim=-1)
+                    loss = torch.nn.KLDivLoss(reduction='batchmean', log_target=True)(log_scores, target_scores)
+                else:
+                    loss = nn.CrossEntropyLoss()(scores, labels[:scores.size(0)])
+
+                if config.use_ib_negatives:
+                    if config.rank < 1:
+                        print('\t\t\t\t', loss.item(), ib_loss.item())
+
+                    loss += ib_loss
+
+                loss = loss / config.accumsteps
+
+            if config.rank < 1:
+                print_progress(scores)
+
+            this_batch_loss += loss.item()
+            validation_losses = torch.cat((validation_losses, loss))
+    
+    torch.save(validation_losses, "/mnt/minerva1/nlp-2/homes/xsteti05/project/src/expers/colbert_sparse/EXP_VALIDATION_LOSS.pt")
+    
+
 
 def set_bert_grad(colbert, value):
     try:

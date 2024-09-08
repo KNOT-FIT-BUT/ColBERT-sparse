@@ -3,6 +3,7 @@ from colbert.infra.launcher import Launcher
 from colbert.infra.config import ColBERTConfig, RunConfig
 
 from colbert.training.training import train
+from colbert.training.training import validate
 
 
 class Trainer:
@@ -32,9 +33,12 @@ class Trainer:
         self.configure(triples=self.triples, queries=self.queries, collection=self.collection)
         self.configure(checkpoint=checkpoint)
 
-        launcher = Launcher(train)
+        if self.config.validate:
+            launcher = Launcher(validate)
 
-        # TODO: add lambda param to the config object
+        else: 
+            launcher = Launcher(train)
+
         if self.lmbd is not None: # This passes the lambda hyperparameter for the sparsity scores of the loss function
             self._best_checkpoint_path = launcher.launch(self.config, self.triples, self.queries, self.collection, self.lmbd)
         else:

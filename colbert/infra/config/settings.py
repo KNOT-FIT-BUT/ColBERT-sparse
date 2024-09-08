@@ -157,6 +157,8 @@ class TrainingSettings:
     model_name: str = DefaultVal(None)  # DefaultVal('bert-base-uncased')
     
     lmbd : float = DefaultVal(0.0) # Sparsity param for the loss function
+    
+    validate : bool = DefaultVal(False)
 
 @dataclass
 class IndexingSettings:
