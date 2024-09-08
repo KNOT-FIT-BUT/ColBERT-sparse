@@ -176,7 +176,7 @@ class IndexingSettings:
 
     protected_tokens: int = DefaultVal(0)
     
-    # Sparse reduce type options: ["threshold", "prob_cutoff", "top_k"]
+    # Sparse reduce type options: ["threshold", "prob_cutoff", "prob_cutoff_max_norm" "top_k"]
     
     sparse_reduce : bool = DefaultVal(True)
     
