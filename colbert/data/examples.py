@@ -25,7 +25,10 @@ class Examples:
         examples = []
 
         with open(path) as f:
-            for line in f:
+            for i, line in enumerate(f):
+                if i % 10_000 == 0:
+                    perc = round((i/19409544)*100,2)
+                    print(f"Loading examples: {perc}%",end="\r")
                 example = ujson.loads(line)[:nway]
                 examples.append(example)
 

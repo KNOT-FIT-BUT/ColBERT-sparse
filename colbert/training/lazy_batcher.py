@@ -24,9 +24,13 @@ class LazyBatcher():
         self.tensorize_triples = partial(tensorize_triples, self.query_tokenizer, self.doc_tokenizer)
         self.position = 0
 
+        print("Loading triples...")
         self.triples = Examples.cast(triples, nway=self.nway).tolist(rank, nranks)
+        print("Loading queries...")
         self.queries = Queries.cast(queries)
+        print("Loading collection...")
         self.collection = Collection.cast(collection)
+        print("Loading done.")
 
     def __iter__(self):
         return self

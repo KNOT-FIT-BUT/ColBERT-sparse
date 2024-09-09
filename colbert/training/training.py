@@ -1,3 +1,4 @@
+import os
 import time
 import torch
 import random
@@ -221,6 +222,7 @@ def validate(config: ColBERTConfig, triples, queries=None, collection=None):
     validation_losses = torch.Tensor([])
 
     for batch_idx, BatchSteps in zip(range(start_batch_idx, config.maxsteps), reader):
+        print(f"Evaluating... {batch_idx}/{config.maxstept}", end="\r")
         if (warmup_bert is not None) and warmup_bert <= batch_idx:
             set_bert_grad(colbert, True)
             warmup_bert = None
