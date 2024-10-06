@@ -103,8 +103,9 @@ class ColBERT(BaseColBERT):
         D = self.linear(D)
         sparsity_scores = self.slinear(D)
         sparsity_scores_no_sigmoid = sparsity_scores
-        sparsity_scores = self.ssigmoid(sparsity_scores)
-        
+        #sparsity_scores = self.ssigmoid(sparsity_scores)
+        sparsity_scores = torch.nn.functional.gumbel_softmax(sparsity_scores, tau=0.1, hard=False) # Q: What should the tau value be?
+
         mask = torch.tensor(self.mask(input_ids, skiplist=self.skiplist), device=self.device).unsqueeze(2).float()
         rhat = D * mask
         rhat = torch.nn.functional.normalize(rhat, p=2, dim=2)
