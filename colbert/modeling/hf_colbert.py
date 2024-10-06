@@ -111,6 +111,10 @@ def class_factory(name_or_path):
 
             self.init_weights()
 
+            # Experiment: init ones
+            self.slinear.weight.data.fill_(1.0)
+            self.slinear.bias.data.fill_(7.0)
+
             # if colbert_config.relu:
             #     self.score_scaler.weight.data.fill_(1.0)
             #     self.score_scaler.bias.data.fill_(-8.0)
