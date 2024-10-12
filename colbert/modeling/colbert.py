@@ -135,76 +135,80 @@ class ColBERT(BaseColBERT):
             # mask (batch_size, doclen, 1 )
             # r (batch_size, doclen, config.dim)
 
-            if sparse_reduce_type == "threshold": 
+            if sparse_reduce_type == "threshold":
                 delta = self.colbert_config.sparse_reduce_delta
                 keep_mask = sparsity_scores.abs() >= delta
-                mask = mask.bool() & keep_mask                
-             
+                mask = mask.bool() & keep_mask
+
                 # Stats
                 keep_stats = torch.sum(keep_mask, dim=1)
                 discard_stats = torch.sum(~keep_mask, dim=1)
-             
-                self.keep_stats.append(keep_stats)  
-                self.discard_stats.append(discard_stats)                
-             
-          
-                
-            elif sparse_reduce_type == "prob_cutoff": 
+
+                self.keep_stats.append(keep_stats)
+                self.discard_stats.append(discard_stats)
+
+            elif sparse_reduce_type == "prob_cutoff":
                 quantile = self.colbert_config.sparse_reduce_quantile
-                
+
                 prob_distr = torch.nn.functional.softmax(sparsity_scores, dim=1)
-                probs_sorted, sorted_indices = prob_distr.squeeze(-1).sort(dim=1, descending=True)
-                
+                probs_sorted, sorted_indices = prob_distr.squeeze(-1).sort(
+                    dim=1, descending=True
+                )
+
                 reverse_sorted_indices = torch.argsort(sorted_indices, dim=1)
-                
+
                 cum_probs = probs_sorted.cumsum(dim=1)
                 cutoff_mask = cum_probs <= quantile
-                
-                select_mask = torch.gather(cutoff_mask, 1, reverse_sorted_indices).unsqueeze(-1)
-                mask = mask.bool() & select_mask    
-                
+
+                select_mask = torch.gather(
+                    cutoff_mask, 1, reverse_sorted_indices
+                ).unsqueeze(-1)
+                mask = mask.bool() & select_mask
+
                 # Stats
                 keep_stats = torch.sum(cutoff_mask, dim=1)
-                discard_stats = torch.sum(~cutoff_mask, dim=1)   
-                
+                discard_stats = torch.sum(~cutoff_mask, dim=1)
+
                 self.keep_stats.append(keep_stats)
-                self.discard_stats.append(discard_stats)             
+                self.discard_stats.append(discard_stats)
 
             elif sparse_reduce_type == "prob_cutoff_max_norm":
                 quantile = self.colbert_config.sparse_reduce_quantile
-                
+
                 sparse_sums = torch.sum(sparsity_scores_no_sigmoid, dim=1, keepdim=True)
-                prob_distr = sparsity_scores/sparse_sums
-                probs_sorted, sorted_indices = prob_distr.squeeze(-1).sort(dim=1, descending=True)
-                
+                prob_distr = sparsity_scores / sparse_sums
+                probs_sorted, sorted_indices = prob_distr.squeeze(-1).sort(
+                    dim=1, descending=True
+                )
+
                 reverse_sorted_indices = torch.argsort(sorted_indices, dim=1)
-                
+
                 cum_probs = probs_sorted.cumsum(dim=1)
                 cutoff_mask = cum_probs <= quantile
-                
-                select_mask = torch.gather(cutoff_mask, 1, reverse_sorted_indices).unsqueeze(-1)
-                mask = mask.bool() & select_mask    
-                
+
+                select_mask = torch.gather(
+                    cutoff_mask, 1, reverse_sorted_indices
+                ).unsqueeze(-1)
+                mask = mask.bool() & select_mask
+
                 # Stats
                 keep_stats = torch.sum(cutoff_mask, dim=1)
-                discard_stats = torch.sum(~cutoff_mask, dim=1)   
-                
-                self.keep_stats.append(keep_stats)
-                self.discard_stats.append(discard_stats)             
-            
+                discard_stats = torch.sum(~cutoff_mask, dim=1)
 
-            elif sparse_reduce_type == "top_k": 
-                # TODO: implement 
+                self.keep_stats.append(keep_stats)
+                self.discard_stats.append(discard_stats)
+
+            elif sparse_reduce_type == "top_k":
+                # TODO: implement
                 # k = self.colbert_config.sparse_reduce_k
                 pass
-            
-            
+
         if keep_dims is False:
             r, mask = rhat.cpu(), mask.bool().cpu().squeeze(-1)
             r = [d[mask[idx]] for idx, d in enumerate(r)]
 
-        elif keep_dims == 'return_mask':
-            return r, mask.bool()
+        elif keep_dims == "return_mask":
+            return r, mask.bool(), sparsity_scores
 
         if include_sparsity_scores:
             return r, sparsity_scores
