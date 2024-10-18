@@ -82,6 +82,12 @@ def train(config: ColBERTConfig, triples, queries=None, collection=None):
     train_loss_mu = 0.999
 
     start_batch_idx = 0
+    if config.checkpoint.startswith("colbert-")
+        try:
+            start_batch_idx = int(str(config.checkpoint).split("-")[1])
+            print(f"INFO: Checkpoint resume detected: starting at batch_idx {batch_idx}")
+        except:
+            throw Exception("Invalid checkpoint name, expected colbert-<int>")
 
     # if config.resume:
     #     assert config.checkpoint is not None
