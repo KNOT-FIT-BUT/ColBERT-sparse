@@ -15,15 +15,18 @@ from colbert.indexing.collection_indexer import encode
 class Indexer:
     def __init__(self, checkpoint, config=None, verbose: int = 3):
         """
-           Use Run().context() to choose the run's configuration. They are NOT extracted from `config`.
+        Use Run().context() to choose the run's configuration. They are NOT extracted from `config`.
         """
+
+        print("Indexer verbosity:", verbose)
 
         self.index_path = None
         self.verbose = verbose
         self.checkpoint = checkpoint
         self.checkpoint_config = ColBERTConfig.load_from_checkpoint(checkpoint)
 
-        self.config = ColBERTConfig.from_existing(self.checkpoint_config, config, Run().config)
+        # self.config = ColBERTConfig.from_existing(self.checkpoint_config, config, Run().config)
+        self.config = ColBERTConfig.from_existing(self.checkpoint_config, Run().config, config)
         self.configure(checkpoint=checkpoint)
 
     def configure(self, **kw_args):
@@ -41,12 +44,12 @@ class Indexer:
             filename = os.path.join(directory, filename)
 
             delete = filename.endswith(".json")
-            delete = delete and ('metadata' in filename or 'doclen' in filename or 'plan' in filename)
+            delete = delete and ("metadata" in filename or "doclen" in filename or "plan" in filename)
             delete = delete or filename.endswith(".pt")
-            
+
             if delete:
                 deleted.append(filename)
-        
+
         if len(deleted):
             if not force_silent:
                 print_message(f"#> Will delete {len(deleted)} files already at {directory} in 20 seconds...")
@@ -58,38 +61,45 @@ class Indexer:
         return deleted
 
     def index(self, name, collection, overwrite=False):
-        assert overwrite in [True, False, 'reuse', 'resume', "force_silent_overwrite"]
+        print("one")
+        assert overwrite in [True, False, "reuse", "resume", "force_silent_overwrite"]
 
-        self.configure(collection=collection, index_name=name, resume=overwrite=='resume')
+        self.configure(collection=collection, index_name=name, resume=overwrite == "resume")
         # Note: The bsize value set here is ignored internally. Users are encouraged
         # to supply their own batch size for indexing by using the index_bsize parameter in the ColBERTConfig.
         self.configure(bsize=64, partitions=None)
+        print("two")
 
         self.index_path = self.config.index_path_
-        index_does_not_exist = (not os.path.exists(self.config.index_path_))
+        index_does_not_exist = not os.path.exists(self.config.index_path_)
 
-        assert (overwrite in [True, 'reuse', 'resume', "force_silent_overwrite"]) or index_does_not_exist, self.config.index_path_
+        assert (overwrite in [True, "reuse", "resume", "force_silent_overwrite"]) or index_does_not_exist, self.config.index_path_
         create_directory(self.config.index_path_)
+        print("three")
 
-        if overwrite == 'force_silent_overwrite':
+        if overwrite == "force_silent_overwrite":
             self.erase(force_silent=True)
         elif overwrite is True:
             self.erase()
+        print("four")
 
-        if index_does_not_exist or overwrite != 'reuse':
+        if index_does_not_exist or overwrite != "reuse":
             self.__launch(collection)
+        print("five")
 
         return self.index_path
 
     def __launch(self, collection):
         launcher = Launcher(encode)
         if self.config.nranks == 1 and self.config.avoid_fork_if_possible:
+            print("Launching without forking")
             shared_queues = []
             shared_lists = []
             launcher.launch_without_fork(self.config, collection, shared_lists, shared_queues, self.verbose)
 
             return
 
+        print("Launching with forking")
         manager = mp.Manager()
         shared_lists = [manager.list() for _ in range(self.config.nranks)]
         shared_queues = [manager.Queue(maxsize=1) for _ in range(self.config.nranks)]

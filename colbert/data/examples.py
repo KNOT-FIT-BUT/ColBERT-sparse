@@ -16,7 +16,7 @@ class Examples:
 
     def provenance(self):
         return self.__provenance
-    
+
     def toDict(self):
         return self.provenance()
 
@@ -26,9 +26,9 @@ class Examples:
 
         with open(path) as f:
             for i, line in enumerate(f):
-                if i % 10_000 == 0:
-                    perc = round((i/19409544)*100,2)
-                    print(f"Loading examples: {perc}%",end="\r")
+                # if i % 10_000 == 0:
+                # perc = round((i/19409544)*100,2)
+                # print(f"Loading examples: {perc}%",end="\r")
                 example = ujson.loads(line)[:nway]
                 examples.append(example)
 
@@ -44,27 +44,33 @@ class Examples:
 
         if rank or nranks:
             assert rank in range(nranks), (rank, nranks)
-            return [self.data[idx] for idx in range(0, len(self.data), nranks)]  # if line_idx % nranks == rank
+            return [
+                self.data[idx] for idx in range(0, len(self.data), nranks)
+            ]  # if line_idx % nranks == rank
 
         return list(self.data)
 
     def save(self, new_path):
-        assert 'json' in new_path.strip('/').split('/')[-1].split('.'), "TODO: Support .json[l] too."
+        assert "json" in new_path.strip("/").split("/")[-1].split(
+            "."
+        ), "TODO: Support .json[l] too."
 
-        print_message(f"#> Writing {len(self.data) / 1000_000.0}M examples to {new_path}")
+        print_message(
+            f"#> Writing {len(self.data) / 1000_000.0}M examples to {new_path}"
+        )
 
-        with Run().open(new_path, 'w') as f:
+        with Run().open(new_path, "w") as f:
             for example in self.data:
                 ujson.dump(example, f)
-                f.write('\n')
+                f.write("\n")
 
             output_path = f.name
             print_message(f"#> Saved examples with {len(self.data)} lines to {f.name}")
-        
-        with Run().open(f'{new_path}.meta', 'w') as f:
+
+        with Run().open(f"{new_path}.meta", "w") as f:
             d = {}
-            d['metadata'] = get_metadata_only()
-            d['provenance'] = self.provenance()
+            d["metadata"] = get_metadata_only()
+            d["provenance"] = self.provenance()
             line = ujson.dumps(d, indent=4)
             f.write(line)
 

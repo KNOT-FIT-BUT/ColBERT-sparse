@@ -1,10 +1,10 @@
 import os
+from typing import Any
 import torch
 
 import __main__
 from dataclasses import dataclass
 from colbert.utils.utils import timestamp
-
 from .core_config import DefaultVal
 
 
@@ -45,9 +45,7 @@ class RunSettings:
         value = list(map(int, value))
         value = sorted(list(set(value)))
 
-        assert all(
-            device_idx in range(0, self.total_visible_gpus) for device_idx in value
-        ), value
+        assert all(device_idx in range(0, self.total_visible_gpus) for device_idx in value), value
 
         return value
 
@@ -137,6 +135,8 @@ class TrainingSettings:
 
     resume: bool = DefaultVal(False)
 
+    resume_batch_idx : int = DefaultVal(None)
+
     ## NEW:
     warmup: int = DefaultVal(None)
 
@@ -155,10 +155,21 @@ class TrainingSettings:
     ignore_scores: bool = DefaultVal(False)
 
     model_name: str = DefaultVal(None)  # DefaultVal('bert-base-uncased')
-    
-    lmbd : float = DefaultVal(0.0) # Sparsity param for the loss function
-    
-    validate : bool = DefaultVal(False)
+
+    lmbd: float = DefaultVal(0.0)  # Sparsity param for the loss function
+
+    validate: bool = DefaultVal(False)
+
+    wandb_run: Any = DefaultVal(None)
+
+    fail_with_exception_raise: bool = DefaultVal(False)
+
+    sparse_arch_type: str = DefaultVal(None)
+
+    sparse_reduce: bool = DefaultVal(False)
+
+    regularization: str = DefaultVal("l1")
+
 
 @dataclass
 class IndexingSettings:
@@ -177,21 +188,20 @@ class IndexingSettings:
     clustering_mode: str = DefaultVal("hierarchical")
 
     protected_tokens: int = DefaultVal(0)
-    
+
     # Sparse reduce type options: ["threshold", "prob_cutoff", "prob_cutoff_max_norm" "top_k"]
-    
-    sparse_reduce : bool = DefaultVal(True)
-    
-    sparse_reduce_type : str = DefaultVal("threshold") 
-    
-    sparse_reduce_delta : float = DefaultVal(0.2)       # param for theshold type
-    
-    sparse_reduce_quantile : float = DefaultVal(0.75)   # param for prob_cutoff type
-    
-    sparse_reduce_k : int = DefaultVal(50)              # param top_k type
-    
-    sparse_stats : bool = DefaultVal(True)    
-    
+
+    sparse_reduce: bool = DefaultVal(True)
+
+    sparse_reduce_type: str = DefaultVal("threshold")
+
+    sparse_reduce_delta: float = DefaultVal(0.2)  # param for theshold type
+
+    sparse_reduce_quantile: float = DefaultVal(0.75)  # param for prob_cutoff type
+
+    sparse_reduce_k: int = DefaultVal(50)  # param top_k type
+
+    sparse_stats: bool = DefaultVal(True)
 
     @property
     def index_path_(self):

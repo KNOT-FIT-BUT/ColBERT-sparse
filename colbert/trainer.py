@@ -13,7 +13,7 @@ class Trainer:
         self.triples = triples
         self.queries = queries
         self.collection = collection
-        
+
         self.lmbd = None
         if "lmbd" in kw_args:
             self.lmbd = kw_args["lmbd"]
@@ -23,35 +23,29 @@ class Trainer:
     def configure(self, **kw_args):
         self.config.configure(**kw_args)
 
-    def train(self, checkpoint='bert-base-uncased'):
+    def train(self, checkpoint="bert-base-uncased"):
         """
-            Note that config.checkpoint is ignored. Only the supplied checkpoint here is used.
+        Note that config.checkpoint is ignored. Only the supplied checkpoint here is used.
         """
 
         # Resources don't come from the config object. They come from the input parameters.
         # TODO: After the API stabilizes, make this "self.config.assign()" to emphasize this distinction.
-        self.configure(triples=self.triples, queries=self.queries, collection=self.collection)
+        self.configure(
+            triples=self.triples, queries=self.queries, collection=self.collection
+        )
         self.configure(checkpoint=checkpoint)
 
         if self.config.validate:
             launcher = Launcher(validate)
+            self._best_checkpoint_path = launcher.launch(
+                self.config, self.triples, self.queries, self.collection
+            )
 
-        else: 
-            launcher = Launcher(train)
-
-        if self.lmbd is not None: # This passes the lambda hyperparameter for the sparsity scores of the loss function
-            self._best_checkpoint_path = launcher.launch(self.config, self.triples, self.queries, self.collection, self.lmbd)
         else:
-            self._best_checkpoint_path = launcher.launch(self.config, self.triples, self.queries, self.collection)
-
-        self._best_checkpoint_path = launcher.launch(
-            self.config, 
-            self.triples, 
-            self.queries, 
-            self.collection 
-        )
-
+            launcher = Launcher(train)
+            self._best_checkpoint_path = launcher.launch(
+                self.config, self.triples, self.queries, self.collection
+            )
 
     def best_checkpoint_path(self):
         return self._best_checkpoint_path
-

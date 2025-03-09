@@ -2,6 +2,7 @@ import os
 import torch
 import ujson
 import dataclasses
+import wandb
 
 from typing import Any
 from collections import defaultdict
@@ -14,12 +15,13 @@ from utility.utils.save_metadata import get_metadata_only
 @dataclass
 class DefaultVal:
     val: Any
-    
+
     def __hash__(self):
         return hash(repr(self.val))
 
     def __eq__(self, other):
         self.val == other.val
+
 
 @dataclass
 class CoreConfig:
@@ -38,7 +40,7 @@ class CoreConfig:
 
             if not isinstance(field_val, DefaultVal):
                 self.assigned[field.name] = True
-    
+
     def assign_defaults(self):
         for field in fields(self):
             setattr(self, field.name, field.default.val)
@@ -72,13 +74,16 @@ class CoreConfig:
         print(ujson.dumps(self.export(), indent=4))
 
     def __export_value(self, v):
-        v = v.provenance() if hasattr(v, 'provenance') else v
+        v = v.provenance() if hasattr(v, "provenance") else v
 
         if isinstance(v, list) and len(v) > 100:
             v = (f"list with {len(v)} elements starting with...", v[:3])
 
         if isinstance(v, dict) and len(v) > 100:
             v = (f"dict with {len(v)} keys starting with...", list(v.keys())[:3])
+
+        if isinstance(v, wandb.sdk.wandb_run.Run):
+            v = "wandb_run_instance"
 
         return v
 

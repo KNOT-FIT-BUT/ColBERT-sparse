@@ -16,11 +16,11 @@ from colbert.infra.launcher import print_memory_stats
 
 import time
 
-TextQueries = Union[str, 'list[str]', 'dict[int, str]', Queries]
+TextQueries = Union[str, "list[str]", "dict[int, str]", Queries]
 
 
 class Searcher:
-    def __init__(self, index, checkpoint=None, collection=None, config=None, index_root=None, verbose:int = 3):
+    def __init__(self, index, checkpoint=None, collection=None, config=None, index_root=None, verbose: int = 3):
         self.verbose = verbose
         if self.verbose > 1:
             print_memory_stats()
@@ -28,7 +28,10 @@ class Searcher:
         initial_config = ColBERTConfig.from_existing(config, Run().config)
 
         default_index_root = initial_config.index_root_
-        index_root = index_root if index_root else default_index_root
+
+        if not index_root:
+            index_root = default_index_root if not os.getenv("COLBERT_INDEX_ROOT") else os.getenv("COLBERT_INDEX_ROOT")
+
         self.index = os.path.join(index_root, index)
         self.index_config = ColBERTConfig.load_from_index(self.index)
 
@@ -80,23 +83,12 @@ class Searcher:
         if qid_to_pids is None:
             qid_to_pids = {qid: None for qid in qids}
 
-        all_scored_pids = [
-            list(
-                zip(
-                    *self.dense_search(
-                        Q[query_idx:query_idx+1],
-                        k, filter_fn=filter_fn,
-                        pids=qid_to_pids[qid]
-                    )
-                )
-            )
-            for query_idx, qid in tqdm(enumerate(qids))
-        ]
+        all_scored_pids = [list(zip(*self.dense_search(Q[query_idx : query_idx + 1], k, filter_fn=filter_fn, pids=qid_to_pids[qid]))) for query_idx, qid in tqdm(enumerate(qids))]
 
         data = {qid: val for qid, val in zip(queries.keys(), all_scored_pids)}
 
         provenance = Provenance()
-        provenance.source = 'Searcher::search_all'
+        provenance.source = "Searcher::search_all"
         provenance.queries = queries.provenance()
         provenance.config = self.config.export()
         provenance.k = k
@@ -128,4 +120,4 @@ class Searcher:
 
         pids, scores = self.ranker.rank(self.config, Q, filter_fn=filter_fn, pids=pids)
 
-        return pids[:k], list(range(1, k+1)), scores[:k]
+        return pids[:k], list(range(1, k + 1)), scores[:k]
